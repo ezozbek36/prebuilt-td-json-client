@@ -9,30 +9,54 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-22.04
+  build:
+    name: Build TDLib (${{ matrix.platform }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            arch: x86_64
+            os: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: true
 
-      - name: setup
-        run: sudo apt-get install -y make zlib1g-dev libssl-dev gperf php-cli cmake clang libc++-dev libc++abi-dev
-
-      - name: build
-        run: |
-          cd third_party/td
-          rm -rf build && mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=../tdlib ..
-          cmake --build . --target prepare_cross_compiling
-          cmake --build . --target install
-
-      - name: pack
-        run: cd third_party/td/tdlib/lib && zip libtdjson.zip libtdjson.so && mv libtdjson.zip ../../../..
-
-      - name: GH Release
-        uses: softprops/action-gh-release@v2.4.1
-        if: github.ref_type == 'tag'
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
-          files: libtdjson.zip
+          key: ${{ runner.os }}-${{ matrix.platform }}-${{ matrix.arch }}
+
+      - name: Install dependencies (Linux/Android)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y make zlib1g-dev libssl-dev cmake php-cli ninja-build
+
+      - name: Configure build (Linux)
+        if: runner.os == 'Linux'
+        run: cmake \
+          -GNinja \
+          -B build \
+          -S third_party/td \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_TESTING=0 \
+          -DTD_GENERATE_SOURCE_FILES=0
+
+      - name: Build TDLib
+        run: cmake --build build --target tdjson -j$(nproc)
+
+      - name: Install / Package
+        run: |
+          mkdir -p output/${{ matrix.platform }}/${{ matrix.arch }}
+          cp build/libtdjson.so output/${{ matrix.platform }}/${{ matrix.arch }} || true
+          ls -l
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdlib-${{ matrix.platform }}-${{ matrix.arch }}
+          path: output/${{ matrix.platform }}/${{ matrix.arch }}
