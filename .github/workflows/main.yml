@@ -18,7 +18,7 @@ jobs:
         include:
           - platform: linux
             arch: x86_64
-            os: ubuntu-latest
+            os: ubuntu-20.04
 
     steps:
       - name: Checkout repository
@@ -33,18 +33,15 @@ jobs:
 
       - name: Install dependencies (Linux/Android)
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get install -y make zlib1g-dev libssl-dev gperf cmake php-cli ninja-build
+        run: sudo apt-get install -y make zlib1g-dev libssl-dev gperf cmake php-cli ninja-build clang libc++-dev libc++abi-dev
 
       - name: Configure build (Linux)
         if: runner.os == 'Linux'
-        run: cmake
-          -GNinja
-          -B build
-          -S third_party/td
-          -DCMAKE_BUILD_TYPE=Release
-          -DBUILD_TESTING=0
-          -DTD_GENERATE_SOURCE_FILES=0
+        env:
+          CC: /usr/bin/clang
+          CXX: /usr/bin/clang++
+          CXXFLAGS: -stdlib=libc++
+        run: cmake -GNinja -B build -S third_party/td -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=0 -DTD_GENERATE_SOURCE_FILES=0
 
       - name: Build TDLib
         run: cmake --build build --target tdjson -j$(nproc)
@@ -53,7 +50,7 @@ jobs:
         run: |
           mkdir -p output/${{ matrix.platform }}/${{ matrix.arch }}
           cp build/libtdjson.so output/${{ matrix.platform }}/${{ matrix.arch }} || true
-          ls -l
+          ls -l output
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
