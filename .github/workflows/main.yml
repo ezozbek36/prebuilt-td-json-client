@@ -34,16 +34,16 @@ jobs:
       - name: Install dependencies (Linux/Android)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get install -y make zlib1g-dev libssl-dev cmake php-cli ninja-build
+          sudo apt-get install -y make zlib1g-dev libssl-dev gperf cmake php-cli ninja-build
 
       - name: Configure build (Linux)
         if: runner.os == 'Linux'
-        run: cmake \
-          -GNinja \
-          -B build \
-          -S third_party/td \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_TESTING=0 \
+        run: cmake
+          -GNinja
+          -B build
+          -S third_party/td
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTING=0
           -DTD_GENERATE_SOURCE_FILES=0
 
       - name: Build TDLib
