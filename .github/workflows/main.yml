@@ -51,6 +51,7 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
+          max-size: 800MB
           key: ${{ runner.os }}-${{ matrix.platform }}-${{ matrix.arch }}
 
       - name: Install dependencies (Linux/Android)
@@ -116,18 +117,6 @@ jobs:
         with:
           name: tdlib-${{ matrix.platform }}-${{ matrix.arch }}
           path: output/${{ matrix.platform }}/${{ matrix.arch }}
-
-  release:
-    needs: build
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
-    steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: prebuilts
-
       - name: Extract TDLib version
         id: td_version
         run: |
@@ -141,6 +130,17 @@ jobs:
           cd third_party/td
           COMMIT=$(git rev-parse HEAD)
           echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: prebuilts
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2.4.1
