@@ -123,9 +123,9 @@ jobs:
       - name: Package build artifacts
         run: |
           mkdir -p artifacts/${{ matrix.platform }}
-          cp build/libtdjson.so artifacts/${{ matrix.platform }}/${{ matrix.arch }} || true
-          echo "${{ steps.td_version.outputs.version }}" > artifacts/version.txt
-          echo "${{ steps.td_version.outputs.commit }}" > artifacts/commit.txt
+          cp build/libtdjson.so artifacts/${{ matrix.platform }}/${{ matrix.arch }}/libtdjson.so || true
+          echo "Version: ${{ steps.td_version.outputs.version }}" > artifacts/version.txt
+          echo "Commit: ${{ steps.td_version.outputs.commit }}" >> artifacts/version.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -144,12 +144,20 @@ jobs:
         with:
           path: release-assets
 
+      - name: Extract version from one artifact
+        id: version
+        run: |
+          version=$(grep -Po '(?<=Version: )[^ ]+' release-assets/version.txt)
+          commit=$(grep -Po '(?<=Commit: )[^ ]+' release-assets/version.txt)
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "commit=$commit" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2.4.1
         with:
-          tag_name: v$(cat release-assets/version.txt)
+          tag_name: v${{ steps.version.outputs.version }}
           body: |
             🧱 Prebuilt TDLib binaries
-            - Version: `$(cat release-assets/version.txt)`
-            - Commit: [`$(cat release-assets/version.txt)`](https://github.com/tdlib/td/tree/$(cat release-assets/version.txt))
+            - Version: `${{ steps.version.outputs.version }}`
+            - Commit: [`${{ steps.version.outputs.commit }}`](https://github.com/tdlib/td/tree/${{ steps.version.outputs.commit }})
           files: release-assets/**/*
