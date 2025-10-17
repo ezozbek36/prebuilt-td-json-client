@@ -99,7 +99,7 @@ jobs:
       - name: Build TDLib (Android)
         if: matrix.platform == 'android'
         run: |
-          cmake --build . --target tdjson -j$(nproc)
+          cmake --build build --target tdjson -j$(nproc)
           ${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-${{ runner.arch }}/bin/llvm-strip --strip-debug --strip-unneeded build/libtdjson.so -o build/libtdjson.so
 
       - name: Install / Package
