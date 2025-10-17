@@ -1,3 +1,6 @@
 [submodule "third_party/td"]
 	path = third_party/td
 	url = https://github.com/tdlib/td.git
+[submodule "third_party/boringssl"]
+	path = third_party/boringssl
+	url = https://github.com/google/boringssl
