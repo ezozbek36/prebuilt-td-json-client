@@ -22,7 +22,6 @@ jobs:
       DCMAKE_C_COMPILER_LAUNCHER: ccache
       DCMAKE_CXX_COMPILER_LAUNCHER: ccache
     strategy:
-      max-parallel: 1
       fail-fast: true
       matrix:
         include:
@@ -126,8 +125,8 @@ jobs:
 
       - name: Package build artifacts
         run: |
-          mkdir -p artifacts/${{ matrix.platform }}-${{ matrix.arch }}
-          cp build/libtdjson.so artifacts/${{ matrix.platform }}-${{ matrix.arch }}/libtdjson.so || true
+          mkdir -p artifacts
+          cp build/libtdjson.so artifacts/libtdjson.so.${{ matrix.platform }}-${{ matrix.arch }} || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
