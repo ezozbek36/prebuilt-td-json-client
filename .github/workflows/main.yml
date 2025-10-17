@@ -106,17 +106,6 @@ jobs:
           cmake --build build --target tdjson -j$(nproc)
           ${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-${HOSTTYPE}/bin/llvm-strip --strip-debug --strip-unneeded build/libtdjson.so -o build/libtdjson.so
 
-      - name: Install / Package
-        run: |
-          mkdir -p output/${{ matrix.platform }}/${{ matrix.arch }}
-          cp build/libtdjson.so output/${{ matrix.platform }}/${{ matrix.arch }} || true
-          ls -l output/${{ matrix.platform }}/${{ matrix.arch }}
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tdlib-${{ matrix.platform }}-${{ matrix.arch }}
-          path: output/${{ matrix.platform }}/${{ matrix.arch }}
       - name: Extract TDLib version
         id: td_version
         run: |
@@ -131,6 +120,19 @@ jobs:
           COMMIT=$(git rev-parse HEAD)
           echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
 
+      - name: Package build artifacts
+        run: |
+          mkdir -p artifacts/${{ matrix.platform }}
+          cp build/libtdjson.so artifacts/${{ matrix.platform }}/${{ matrix.arch }} || true
+          echo "${{ steps.td_version.outputs.version }}" > artifacts/version.txt
+          echo "${{ steps.td_version.outputs.commit }}" > artifacts/commit.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdlib-${{ matrix.platform }}-${{ matrix.arch }}
+          path: artifacts
+
   release:
     needs: build
     runs-on: ubuntu-22.04
@@ -140,14 +142,14 @@ jobs:
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
-          path: prebuilts
+          path: release-assets
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2.4.1
         with:
-          tag_name: v${{ steps.td_version.outputs.version }}
+          tag_name: v$(cat release-assets/version.txt)
           body: |
             🧱 Prebuilt TDLib binaries
-            - Version: `${{ steps.version.outputs.version }}`
-            - Commit: [`${{ steps.version.outputs.commit }}`](https://github.com/tdlib/td/tree/${{ steps.version.outputs.commit }})
-          files: prebuilts/**
+            - Version: `$(cat release-assets/version.txt)`
+            - Commit: [`$(cat release-assets/version.txt)`](https://github.com/tdlib/td/tree/$(cat release-assets/version.txt))
+          files: release-assets/**/*
