@@ -56,20 +56,10 @@ jobs:
 
       - name: Install dependencies (Linux/Android)
         if: runner.os == 'Linux'
-        run: sudo apt-get install -y make zlib1g-dev libssl-dev gperf cmake php-cli ninja-build clang libc++-dev libc++abi-dev
-
-      - id: setup-ndk
-        name: Setup Android NDK
-        uses: nttld/setup-ndk@v1.5.0
-        if: matrix.platform == 'android'
-        with:
-          ndk-version: r23e
-          add-to-path: false
+        run: sudo apt-get install -y zlib1g-dev gperf
 
       - name: Configure & build BoringSSL
         if: matrix.platform == 'android'
-        env:
-          ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: cmake -GNinja -B build-boringssl -S third_party/boringssl
           -DBUILD_TESTING=OFF
           -DBUILD_SHARED_LIBS=OFF
@@ -77,10 +67,10 @@ jobs:
           -DOPENSSL_SMALL=ON
           -DOPENSSL_NO_ASM=ON
           -DANDROID_ABI=${{ matrix.arch }}
-          -DANDROID_PLATFORM=android-19
+          -DANDROID_PLATFORM=android-21
           -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-          -DCMAKE_TOOLCHAIN_FILE=${{ steps.setup-ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake &&
+          -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake &&
           cmake --build build-boringssl
 
       - name: Configure build (Linux)
@@ -95,9 +85,9 @@ jobs:
           -DOPENSSL_CRYPTO_LIBRARY=$(realpath build-boringssl/libcrypto.a)
           -DOPENSSL_SSL_LIBRARY=$(realpath build-boringssl/libssl.a)
           -DANDROID_ABI=${{ matrix.arch }}
-          -DANDROID_PLATFORM=android-19
+          -DANDROID_PLATFORM=android-21
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          -DCMAKE_TOOLCHAIN_FILE=${{ steps.setup-ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake
+          -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake
 
       - name: Build TDLib (Linux)
         if: matrix.platform == 'linux'
@@ -110,7 +100,7 @@ jobs:
         if: matrix.platform == 'android'
         run: |
           cmake --build . --target tdjson -j$(nproc)
-          ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-${{ runner.arch }}/bin/llvm-strip --strip-debug --strip-unneeded build/libtdjson.so -o build/libtdjson.so
+          ${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-${{ runner.arch }}/bin/llvm-strip --strip-debug --strip-unneeded build/libtdjson.so -o build/libtdjson.so
 
       - name: Install / Package
         run: |
