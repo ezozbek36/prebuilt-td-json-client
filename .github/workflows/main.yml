@@ -104,7 +104,7 @@ jobs:
         if: matrix.platform == 'android'
         run: |
           cmake --build build --target tdjson -j$(nproc)
-          ${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-${{ runner.arch }}/bin/llvm-strip --strip-debug --strip-unneeded libtdjson.so -o libtdjson.so
+          ${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-${HOSTTYPE}/bin/llvm-strip --strip-debug --strip-unneeded libtdjson.so -o libtdjson.so
 
       - name: Install / Package
         run: |
