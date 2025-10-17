@@ -19,8 +19,7 @@ jobs:
       DCMAKE_C_COMPILER_LAUNCHER: ccache
       DCMAKE_CXX_COMPILER_LAUNCHER: ccache
     strategy:
-      fail-fast: false
-      max-parallel: 2
+      fail-fast: true
       matrix:
         include:
           - platform: linux
@@ -110,10 +109,45 @@ jobs:
         run: |
           mkdir -p output/${{ matrix.platform }}/${{ matrix.arch }}
           cp build/libtdjson.so output/${{ matrix.platform }}/${{ matrix.arch }} || true
-          ls -l output
+          ls -l output/${{ matrix.platform }}/${{ matrix.arch }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: tdlib-${{ matrix.platform }}-${{ matrix.arch }}
           path: output/${{ matrix.platform }}/${{ matrix.arch }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: prebuilts
+
+      - name: Extract TDLib version
+        id: td_version
+        run: |
+          LINE=$(grep -E "project\\s*\\(TDLib\\s+VERSION\\s+[0-9]+\\.[0-9]+\\.[0-9]+" third_party/td/CMakeLists.txt)
+          VERSION=$(echo "$LINE" | sed -E 's/.*VERSION[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Get TDLib commit hash
+        id: td_commit
+        run: |
+          cd third_party/td
+          COMMIT=$(git rev-parse HEAD)
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2.4
+        with:
+          tag_name: v${{ steps.td_version.outputs.version }}
+          body: |
+            🧱 Prebuilt TDLib binaries
+            - Version: `${{ steps.version.outputs.version }}`
+            - Commit: [`${{ steps.version.outputs.commit }}`](https://github.com/tdlib/td/tree/${{ steps.version.outputs.commit }})
+          files: prebuilts/**
