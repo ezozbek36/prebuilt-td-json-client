@@ -60,17 +60,18 @@ jobs:
 
       - name: Configure & build BoringSSL
         if: matrix.platform == 'android'
-        run: cmake -Wno-deprecated -GNinja -B build-boringssl -S third_party/boringssl
-          -DBUILD_TESTING=OFF
-          -DBUILD_SHARED_LIBS=OFF
-          -DFUZZ=OFF
-          -DOPENSSL_SMALL=ON
-          -DOPENSSL_NO_ASM=ON
-          -DANDROID_ABI=${{ matrix.arch }}
-          -DANDROID_PLATFORM=android-21
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-          -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake &&
+        run: |
+          cmake -Wno-deprecated -GNinja -B build-boringssl -S third_party/boringssl \
+            -DBUILD_TESTING=OFF \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DFUZZ=OFF \
+            -DOPENSSL_SMALL=ON \
+            -DOPENSSL_NO_ASM=ON \
+            -DANDROID_ABI=${{ matrix.arch }} \
+            -DANDROID_PLATFORM=android-21 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake
           cmake --build build-boringssl
 
       - name: Configure build (Linux)
@@ -79,15 +80,18 @@ jobs:
 
       - name: Configure build (Android)
         if: matrix.platform == 'android'
-        run: cmake -Wno-deprecated -GNinja -B build -S third_party/td
-          -DOPENSSL_FOUND=TRUE
-          -DOPENSSL_INCLUDE_DIR=$(realpath third_party/boringssl/include)
-          -DOPENSSL_CRYPTO_LIBRARY=$(realpath build-boringssl/libcrypto.a)
-          -DOPENSSL_SSL_LIBRARY=$(realpath build-boringssl/libssl.a)
-          -DANDROID_ABI=${{ matrix.arch }}
-          -DANDROID_PLATFORM=android-21
-          -DCMAKE_BUILD_TYPE=RelWithDebInfo
-          -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake
+        run: |
+          cmake -B build-sources -S third_party/td -DTD_GENERATE_SOURCE_FILES=ON
+          cmake --build build-sources -j$(nproc)
+          cmake -Wno-deprecated -GNinja -B build -S third_party/td \
+            -DOPENSSL_FOUND=TRUE \
+            -DOPENSSL_INCLUDE_DIR=$(realpath third_party/boringssl/include) \
+            -DOPENSSL_CRYPTO_LIBRARY=$(realpath build-boringssl/libcrypto.a) \
+            -DOPENSSL_SSL_LIBRARY=$(realpath build-boringssl/libssl.a) \
+            -DANDROID_ABI=${{ matrix.arch }} \
+            -DANDROID_PLATFORM=android-21 \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake
 
       - name: Build TDLib (Linux)
         if: matrix.platform == 'linux'
@@ -99,9 +103,7 @@ jobs:
       - name: Build TDLib (Android)
         if: matrix.platform == 'android'
         run: |
-          cd build
-          cmake --build . --target prepare_cross_compiling -j$(nproc)
-          cmake --build . --target tdjson -j$(nproc)
+          cmake --build build --target tdjson -j$(nproc)
           ${ANDROID_NDK}/toolchains/llvm/prebuilt/linux-${{ runner.arch }}/bin/llvm-strip --strip-debug --strip-unneeded libtdjson.so -o libtdjson.so
 
       - name: Install / Package
