@@ -12,12 +12,35 @@ jobs:
   build:
     name: Build TDLib (${{ matrix.platform }}-${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
+    env:
+      CC: /usr/bin/clang
+      CXX: /usr/bin/clang++
+      CXXFLAGS: -stdlib=libc++
+      DCMAKE_C_COMPILER_LAUNCHER: ccache
+      DCMAKE_CXX_COMPILER_LAUNCHER: ccache
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           - platform: linux
             arch: x86_64
+            os: ubuntu-22.04
+
+          - platform: android
+            arch: arm64-v8a
+            os: ubuntu-22.04
+
+          - platform: android
+            arch: armeabi-v7a
+            os: ubuntu-22.04
+
+          - platform: android
+            arch: x86_64
+            os: ubuntu-22.04
+
+          - platform: android
+            arch: x86
             os: ubuntu-22.04
 
     steps:
@@ -35,19 +58,58 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get install -y make zlib1g-dev libssl-dev gperf cmake php-cli ninja-build clang libc++-dev libc++abi-dev
 
-      - name: Configure build (Linux)
-        if: runner.os == 'Linux'
-        env:
-          CC: /usr/bin/clang
-          CXX: /usr/bin/clang++
-          CXXFLAGS: -stdlib=libc++
-        run: cmake -GNinja -B build -S third_party/td -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      - name: Setup Android NDK
+        if: matrix.platform == 'android'
+        uses: nttld/setup-ndk@v1.5.0
+        with:
+          ndk-version: r21e
+          add-to-path: false
 
-      - name: Build TDLib
+      - name: Configure & build BoringSSL
+        if: matrix.platform == 'android'
+        env:
+          ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: cmake -GNinja -B build-boringssl -S third_party/boringssl
+          -DBUILD_TESTING=OFF
+          -DBUILD_SHARED_LIBS=OFF
+          -DFUZZ=OFF
+          -DOPENSSL_SMALL=ON
+          -DOPENSSL_NO_ASM=ON
+          -DANDROID_ABI=${{ matrix.arch }}
+          -DANDROID_PLATFORM=android-19
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+          -DCMAKE_TOOLCHAIN_FILE=${{ steps.setup-ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake &&
+          cmake --build build-boringssl
+
+      - name: Configure build (Linux)
+        if: matrix.platform == 'linux'
+        run: cmake -GNinja -B build -S third_party/td -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configure build (Android)
+        if: matrix.platform == 'android'
+        run: cmake -GNinja -B build -S third_party/td
+          -DOPENSSL_FOUND=TRUE
+          -DOPENSSL_INCLUDE_DIR=$(realpath third_party/boringssl/include)
+          -DOPENSSL_CRYPTO_LIBRARY=$(realpath build-boringssl/libcrypto.a)
+          -DOPENSSL_SSL_LIBRARY=$(realpath build-boringssl/libssl.a)
+          -DANDROID_ABI=${{ matrix.arch }}
+          -DANDROID_PLATFORM=android-19
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DCMAKE_TOOLCHAIN_FILE=${{ steps.setup-ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake
+
+      - name: Build TDLib (Linux)
+        if: matrix.platform == 'linux'
         run: |
           cd build
           cmake --build . --target prepare_cross_compiling -j$(nproc)
           cmake --build . --target tdjson -j$(nproc)
+
+      - name: Build TDLib (Android)
+        if: matrix.platform == 'android'
+        run: |
+          cmake --build . --target tdjson -j$(nproc)
+          ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-${{ runner.arch }}/bin/llvm-strip --strip-debug --strip-unneeded build/libtdjson.so -o build/libtdjson.so
 
       - name: Install / Package
         run: |
