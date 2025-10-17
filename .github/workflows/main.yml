@@ -12,6 +12,9 @@ jobs:
   build:
     name: Build TDLib (${{ matrix.platform }}-${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
+    outputs:
+      version: ${{ steps.td_version.outputs.version }}
+      commit_hash: ${{ steps.td_commit.outputs.commit }}
     env:
       CC: /usr/bin/clang
       CXX: /usr/bin/clang++
@@ -19,6 +22,7 @@ jobs:
       DCMAKE_C_COMPILER_LAUNCHER: ccache
       DCMAKE_CXX_COMPILER_LAUNCHER: ccache
     strategy:
+      max-parallel: 1
       fail-fast: true
       matrix:
         include:
@@ -122,16 +126,14 @@ jobs:
 
       - name: Package build artifacts
         run: |
-          mkdir -p artifacts/${{ matrix.platform }}
-          cp build/libtdjson.so artifacts/${{ matrix.platform }}/${{ matrix.arch }}/libtdjson.so || true
-          echo "Version: ${{ steps.td_version.outputs.version }}" > artifacts/version.txt
-          echo "Commit: ${{ steps.td_version.outputs.commit }}" >> artifacts/version.txt
+          mkdir -p artifacts/${{ matrix.platform }}-${{ matrix.arch }}
+          cp build/libtdjson.so artifacts/${{ matrix.platform }}-${{ matrix.arch }}/libtdjson.so || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tdlib-${{ matrix.platform }}-${{ matrix.arch }}
-          path: artifacts/**/*
+          name: ${{ matrix.platform }}-${{ matrix.arch }}
+          path: ./artifacts/**/*
 
   release:
     needs: build
@@ -142,22 +144,14 @@ jobs:
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
-          path: release-assets/
-
-      - name: Extract version from one artifact
-        id: version
-        run: |
-          version=$(grep -Po '(?<=Version: )[^ ]+' release-assets/version.txt)
-          commit=$(grep -Po '(?<=Commit: )[^ ]+' release-assets/version.txt)
-          echo "version=$version" >> $GITHUB_OUTPUT
-          echo "commit=$commit" >> $GITHUB_OUTPUT
+          path: ./artifacts
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2.4.1
         with:
-          tag_name: v${{ steps.version.outputs.version }}
+          tag_name: v${{ needs.build.outputs.version }}
           body: |
             🧱 Prebuilt TDLib binaries
-            - Version: `${{ steps.version.outputs.version }}`
-            - Commit: [`${{ steps.version.outputs.commit }}`](https://github.com/tdlib/td/tree/${{ steps.version.outputs.commit }})
-          files: release-assets/**/*
+            - Version: `${{ needs.build.outputs.version }}`
+            - Commit: [`${{ needs.build.outputs.commit_hash }}`](https://github.com/tdlib/td/tree/${{ needs.build.outputs.commit_hash }})
+          files: ./artifacts/**/*
