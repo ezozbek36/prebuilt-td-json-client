@@ -143,7 +143,7 @@ jobs:
           echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2.4
+        uses: softprops/action-gh-release@v2.4.1
         with:
           tag_name: v${{ steps.td_version.outputs.version }}
           body: |
