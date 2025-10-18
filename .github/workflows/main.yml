@@ -149,7 +149,7 @@ jobs:
       - name: Archive binaries
         run: |
           mkdir release
-          cd .github
+          cd artifacts
           for dir in */; do
             if [ -d "$dir" ]; then
               cd "${dir}"
