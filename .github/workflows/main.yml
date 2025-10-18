@@ -125,14 +125,15 @@ jobs:
 
       - name: Package build artifacts
         run: |
-          mkdir -p artifacts
+          mkdir -p artifacts/${{ matrix.platform }}-${{ matrix.arch }}
           cp build/libtdjson.so artifacts/${{ matrix.platform }}-${{ matrix.arch }}/libtdjson.so || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}-${{ matrix.arch }}
-          path: ./artifacts/**/*
+          if-no-files-found: error
+          path: ./artifacts/*
 
   release:
     name: Create Github Release
