@@ -126,7 +126,7 @@ jobs:
       - name: Package build artifacts
         run: |
           mkdir -p artifacts
-          cp build/libtdjson.so artifacts/libtdjson.so.${{ matrix.platform }}-${{ matrix.arch }} || true
+          cp build/libtdjson.so artifacts/${{ matrix.platform }}-${{ matrix.arch }}/libtdjson.so || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -135,8 +135,9 @@ jobs:
           path: ./artifacts/**/*
 
   release:
-    needs: build
+    name: Create Github Release
     runs-on: ubuntu-22.04
+    needs: build
     permissions:
       contents: write
     steps:
@@ -144,6 +145,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
+
+      - name: Archive binaries
+        run: |
+          for dir in */; do
+            if [ -d "$dir" ]; then
+              echo $dir
+              cd "${dir}" && zip -r "../${dir%/}.zip" . && cd ..
+            fi
+          done
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2.4.1
@@ -153,4 +163,4 @@ jobs:
             🧱 Prebuilt TDLib binaries
             - Version: `${{ needs.build.outputs.version }}`
             - Commit: [`${{ needs.build.outputs.commit_hash }}`](https://github.com/tdlib/td/tree/${{ needs.build.outputs.commit_hash }})
-          files: ./artifacts/**/*
+          files: ./release/*
