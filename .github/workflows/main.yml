@@ -148,10 +148,13 @@ jobs:
 
       - name: Archive binaries
         run: |
+          mkdir release
+          cd .github
           for dir in */; do
             if [ -d "$dir" ]; then
-              echo $dir
-              cd "${dir}" && zip -r "../${dir%/}.zip" . && cd ..
+              cd "${dir}"
+              zip -r "../../release/${dir%/}.zip" .
+              cd ..
             fi
           done
 
